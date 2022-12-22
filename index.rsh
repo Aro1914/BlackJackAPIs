@@ -6,6 +6,9 @@ const [isOut, P_WINS, D_WINS, DRAW] = makeEnum(3)
 const DEADLINE = 20
 const LENGTH = 15 // in blocks
 const BANK = 9000
+const MAX_WAGER = 100000000
+const MAX_REWARD = (MAX_WAGER / 100) * 125
+
 const cardValue = (x) => (x < 10 ? x : 10)
 const myFromMaybe = (m) =>
 	fromMaybe(
@@ -102,15 +105,14 @@ export const main = Reach.App(() => {
 		const commitD = declassify(_commitD)
 		const dCard2 = declassify(interact.getCard())
 		const bank = declassify(interact.bank)
-		check(bank > 2000, 'bank too low')
+		check(bank > 2000000000, 'bank too low')
 	})
 
 	D.publish(commitD, dCard2, bank).pay(bank)
 	commit()
 	D.interact.showBalance(balance())
 	D.publish()
-
-	const payBank = BANK / 10
+	const maxPlayers = bank / MAX_REWARD
 
 	const players = new Map(
 		Address,
@@ -129,9 +131,9 @@ export const main = Reach.App(() => {
 	V.vBank.set(bank)
 	const [count, wagers] = parallelReduce([0, 0])
 		.invariant(balance() == wagers + bank)
-		.while(count < 4)
+		.while(count < (maxPlayers > 4 ? 4 : maxPlayers))
 		.api_(P.startGame, (card1, card2, wager) => {
-			check(wager < 101000000, 'sorry, that wager is over the limit')
+			check(wager <= MAX_WAGER, 'sorry, that wager is over the limit')
 			return [
 				wager,
 				(ret) => {
@@ -288,11 +290,13 @@ export const main = Reach.App(() => {
 					// check for 21
 					if (pObj.total == 21 && pObj.cardCount == 2) {
 						// blackjack win amount
-						if (balance() >= bet) transfer(bet).to(who)
+						const extra = (bet / 100) * 125
+						const reward = extra + bet
+						if (balance() >= reward) transfer(reward).to(who)
 						return [fCount - 1, nWagers - bet]
 					} else {
 						// regular win amount
-						if (balance() >= bet) transfer(bet).to(who)
+						if (balance() >= bet * 2) transfer(bet * 2).to(who)
 						return [fCount - 1, nWagers - bet]
 					}
 				} else {
